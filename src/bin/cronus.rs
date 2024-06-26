@@ -4,7 +4,7 @@ use fork::{daemon, Fork};
 use structopt::StructOpt;
 use uuid::Uuid;
 
-use cronus::command::{CommandProxy, CommandResponse};
+use cronus::command::{CommandClient, CommandResponse};
 use cronus::CronusResult;
 use cronus::job::Job;
 use cronus::scheduler::CronusScheduler;
@@ -223,8 +223,8 @@ async fn main() -> CronusResult<()> {
             }
         }
         Command::Stop { name, path } => {
-            let cmd_proxy = CommandProxy::new(name, path)?;
-            cmd_proxy.shutdown()?
+            let cc = CommandClient::new(name, path)?;
+            cc.stop_service()?
         }
         Command::Add {
             name,
@@ -232,17 +232,17 @@ async fn main() -> CronusResult<()> {
             corn,
             sub_cmd,
         } => {
-            let cmd_proxy = CommandProxy::new(name, path)?;
-            cmd_proxy.add_cmd_job(corn, sub_cmd.into_job())?
+            let cc = CommandClient::new(name, path)?;
+            cc.add_job(corn, sub_cmd.into_job())?
         }
         Command::Delete { name, path, id } => {
             Uuid::parse_str(&id).map_err(|_| "Invalid job id")?;
-            let cmd_proxy = CommandProxy::new(name, path)?;
-            cmd_proxy.delete_job(id)?
+            let cc = CommandClient::new(name, path)?;
+            cc.delete_job(id)?
         }
         Command::List { name, path } => {
-            let cmd_proxy = CommandProxy::new(name, path)?;
-            cmd_proxy.list_jobs()?
+            let cc = CommandClient::new(name, path)?;
+            cc.list_jobs()?
         }
         Command::Run { name, path } => {
             let scheduler = CronusScheduler::new(name, path).await?;

@@ -131,16 +131,16 @@ impl CommandResponse {
     }
 }
 
-/// `CommandProxy` is a struct that wraps an `NngIpcSocket` instance.
+/// `CommandClient` is a struct that wraps an `NngIpcSocket` instance.
 ///
 /// It provides methods to send different types of `Command` instances to the socket and receive `CommandResponse` instances.
 ///
 /// # Fields
 ///
 /// * `NngIpcSocket` - An instance of `NngIpcSocket` that is used to send and receive commands.
-pub struct CommandProxy(NngIpcSocket);
+pub struct CommandClient(NngIpcSocket);
 
-impl CommandProxy {
+impl CommandClient {
     /// Creates a new `CommandProxy` instance.
     ///
     /// # Arguments
@@ -150,7 +150,7 @@ impl CommandProxy {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<CommandProxy>` - Returns a `CronusResult` that contains a `CommandProxy` instance on success or an error.
+    /// * `CronusResult<CommandClient>` - Returns a `CronusResult` that contains a `CommandClient` instance on success or an error.
     pub fn new(name: String, path: PathBuf) -> CronusResult<Self> {
         Ok(Self(NngIpcSocket::new_dial_sync(path.join(name))?))
     }
@@ -165,8 +165,8 @@ impl CommandProxy {
     /// # Returns
     ///
     /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
-    pub fn add_cmd_job(&self, corn: String, job: Job) -> CronusResult<CommandResponse> {
-        self.send_cmd(Command::new_add_job(corn, job))
+    pub fn add_job(&self, corn: String, job: Job) -> CronusResult<CommandResponse> {
+        self.cmd_request(Command::new_add_job(corn, job))
     }
 
     /// Sends a `ListJobs` command to the socket.
@@ -175,7 +175,7 @@ impl CommandProxy {
     ///
     /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
     pub fn list_jobs(&self) -> CronusResult<CommandResponse> {
-        self.send_cmd(Command::new_list_jobs())
+        self.cmd_request(Command::new_list_jobs())
     }
 
     /// Sends a `DeleteJob` command to the socket.
@@ -188,7 +188,7 @@ impl CommandProxy {
     ///
     /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
     pub fn delete_job(&self, id: String) -> CronusResult<CommandResponse> {
-        self.send_cmd(Command::new_delete_job(id))
+        self.cmd_request(Command::new_delete_job(id))
     }
 
     /// Sends a `StopService` command to the socket.
@@ -196,8 +196,8 @@ impl CommandProxy {
     /// # Returns
     ///
     /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
-    pub fn shutdown(&self) -> CronusResult<CommandResponse> {
-        self.send_cmd(Command::new_stop_service())
+    pub fn stop_service(&self) -> CronusResult<CommandResponse> {
+        self.cmd_request(Command::new_stop_service())
     }
 
     /// Sends a `Command` instance to the socket and receives a `CommandResponse` instance.
@@ -209,7 +209,7 @@ impl CommandProxy {
     /// # Returns
     ///
     /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
-    fn send_cmd(&self, cmd: Command) -> CronusResult<CommandResponse> {
+    fn cmd_request(&self, cmd: Command) -> CronusResult<CommandResponse> {
         self.0.send(&cmd.to_bytes()?)?;
         let msg = self.0.recv()?;
         CommandResponse::from_bytes(&msg[..])

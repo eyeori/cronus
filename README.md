@@ -28,12 +28,12 @@ Here's how you can use the different commands of the Cronus task execution manag
 
 - Start the service: ```./cronus start```
 - Stop the service: ```./cronus stop```
-- Add a job: ```./cronus add "command" "schedule"```
-- Delete a job: ```./cronus delete "job_name"```
+- Add a job: ```./cronus add -c "<cron>" <sub_command> <cmd_args>```
+- Delete a job: ```./cronus delete -i "<job_id>"```
 - List jobs: ```./cronus list```
 
-Replace "command" with the command you want to execute, "schedule" with the cron expression for the schedule, and "
-job_name" with the name of the job you want to delete.
+Replace ```<cron>``` with the cron expression for the schedule, ```<sub_command>``` and ```<cmd_args>``` with the
+command you want to execute, and ```<job_id>``` with the id of the job you want to delete.
 
 ## Contributing
 
