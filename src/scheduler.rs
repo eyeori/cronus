@@ -156,6 +156,7 @@ impl CronusScheduler {
                             .await?
                     }
                     Command::StopService => Self::handle_cmd_stop_service(&mut scheduler).await?,
+                    Command::PingService => Self::handle_cmd_ping_service().await?,
                 };
                 cmd_res_sender.send(res).await?;
             } else {
@@ -292,5 +293,16 @@ impl CronusScheduler {
     ) -> CronusResult<CommandResponse> {
         scheduler.shutdown().await?;
         Ok(CommandResponse::ServiceStopped)
+    }
+
+    /// Handles the `PingService` command.
+    ///
+    /// This function responds to a ping request to the service. It is used to check if the service is running.
+    ///
+    /// # Returns
+    ///
+    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse::ServiceRunning` if successful, or an error if not.
+    async fn handle_cmd_ping_service() -> CronusResult<CommandResponse> {
+        Ok(CommandResponse::ServiceRunning)
     }
 }

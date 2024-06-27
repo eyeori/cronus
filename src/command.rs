@@ -14,12 +14,14 @@ use crate::nng_socket::NngIpcSocket;
 /// * `ListJobs` - Represents a command to list all jobs.
 /// * `DeleteJob` - Represents a command to delete a job. It contains the id of the job to be deleted.
 /// * `StopService` - Represents a command to stop the service.
+/// * `PingService` - Represents a command to ping the service.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Command {
     AddJob { cron: String, job: Job },
     ListJobs,
     DeleteJob { id: String },
     StopService,
+    PingService,
 }
 
 impl Command {
@@ -68,6 +70,15 @@ impl Command {
         Self::StopService
     }
 
+    /// Creates a new `PingService` command.
+    ///
+    /// # Returns
+    ///
+    /// * `Command` - Returns a `Command::PingService` variant.
+    pub fn new_ping_service() -> Self {
+        Self::PingService
+    }
+
     /// Converts the `Command` instance into a byte vector.
     ///
     /// # Returns
@@ -98,12 +109,14 @@ impl Command {
 /// * `JobAdded(String)` - Represents a response for a successful `AddJob` command. It contains a string that represents the id of the added job.
 /// * `JobList(Vec<JobInfo>)` - Represents a response for a `ListJobs` command. It contains a vector of `JobInfo` instances that represent the list of jobs.
 /// * `JobDeleted` - Represents a response for a successful `DeleteJob` command.
+/// * `ServiceRunning` - Represents a response for a successful `PingService` command.
 /// * `ServiceStopped` - Represents a response for a successful `StopService` command.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum CommandResponse {
     JobAdded(String),
     JobList(Vec<JobInfo>),
     JobDeleted,
+    ServiceRunning,
     ServiceStopped,
 }
 
@@ -198,6 +211,15 @@ impl CommandClient {
     /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
     pub fn stop_service(&self) -> CronusResult<CommandResponse> {
         self.cmd_request(Command::new_stop_service())
+    }
+
+    /// Sends a `PingService` command to the socket.
+    ///
+    /// # Returns
+    ///
+    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
+    pub fn ping_service(&self) -> CronusResult<CommandResponse> {
+        self.cmd_request(Command::new_ping_service())
     }
 
     /// Sends a `Command` instance to the socket and receives a `CommandResponse` instance.

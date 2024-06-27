@@ -6,9 +6,9 @@ use structopt::StructOpt;
 use uuid::Uuid;
 
 use cronus::command::{CommandClient, CommandResponse};
-use cronus::CronusResult;
 use cronus::job::Job;
 use cronus::scheduler::CronusScheduler;
+use cronus::CronusResult;
 
 /// The `Command` enum.
 ///
@@ -23,6 +23,7 @@ use cronus::scheduler::CronusScheduler;
 /// * `Delete` - Deletes a cron job from the Cronus service.
 /// * `List` - Lists the cron jobs on the Cronus service.
 /// * `Run` - Runs the Cronus service.
+/// * `Ping` - Pings the Cronus service.
 #[derive(StructOpt, Debug)]
 #[structopt(name = "Cronus", about = "Scheduled task execution manager")]
 enum Command {
@@ -133,9 +134,26 @@ enum Command {
         )]
         path: PathBuf,
     },
-
     #[structopt(about = "Run cronus service")]
     Run {
+        #[structopt(
+            short,
+            long,
+            default_value = "cronus",
+            long_help = "Cronus service command acceptance name"
+        )]
+        name: String,
+
+        #[structopt(
+            short,
+            long,
+            default_value = "/tmp",
+            long_help = "Cronus service command acceptance path"
+        )]
+        path: PathBuf,
+    },
+    #[structopt(about = "Ping cronus service")]
+    Ping {
         #[structopt(
             short,
             long,
@@ -215,20 +233,10 @@ impl AddSubCommand {
 async fn run() -> CronusResult<String> {
     let response = match Command::from_args() {
         Command::Start { name, path } => {
-            let cronus = std::env::current_exe()?;
-            match daemon(false, false) {
-                Ok(Fork::Child) => {
-                    std::process::Command::new(cronus)
-                        .arg("run")
-                        .arg("--name")
-                        .arg(name)
-                        .arg("--path")
-                        .arg(path)
-                        .spawn()?;
-                    std::process::exit(0);
-                }
-                _ => std::process::exit(0),
+            if !check_service_running(name.clone(), path.clone())? {
+                run_new_service(name, path)?;
             }
+            CommandResponse::ServiceRunning
         }
         Command::Stop { name, path } => {
             let cc = CommandClient::new(name, path)?;
@@ -256,15 +264,72 @@ async fn run() -> CronusResult<String> {
             let scheduler = CronusScheduler::new(name, path).await?;
             scheduler.run().await?
         }
+        Command::Ping { name, path } => {
+            let cc = CommandClient::new(name, path)?;
+            cc.ping_service()?
+        }
     };
 
     let json_result = match response {
         CommandResponse::JobAdded(id) => json!({"job_id": id}),
         CommandResponse::JobList(jobs) => json!(jobs),
         CommandResponse::JobDeleted => json!({"message": "Job deleted"}),
+        CommandResponse::ServiceRunning => json!({"message": "Service running"}),
         CommandResponse::ServiceStopped => json!({"message": "Service stopped"}),
     };
     Ok(json_result.to_string())
+}
+
+/// Checks if the Cronus service is running.
+///
+/// This function sends a ping to the Cronus service and checks the response to determine if the service is running.
+///
+/// # Arguments
+///
+/// * `name` - The name of the Cronus service.
+/// * `path` - The path where the Cronus service is located.
+///
+/// # Returns
+///
+/// * `CronusResult<bool>` - Returns `Ok(true)` if the service is running, `Ok(false)` if the service is not running, and `Err(CronusError)` if there was an error checking the service status.
+fn check_service_running(name: String, path: PathBuf) -> CronusResult<bool> {
+    if let Ok(cc) = CommandClient::new(name, path) {
+        if let Ok(res) = cc.ping_service() {
+            if res == CommandResponse::ServiceRunning {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// Starts a new Cronus service.
+///
+/// This function starts a new instance of the Cronus service in a new process. It uses the `daemon` function to create a new child process, and then starts the Cronus service in the child process.
+///
+/// # Arguments
+///
+/// * `name` - The name of the Cronus service.
+/// * `path` - The path where the Cronus service is located.
+///
+/// # Returns
+///
+/// * `CronusResult<()>` - Returns `Ok(())` if the service is started successfully, and `Err(CronusError)` if there was an error starting the service.
+fn run_new_service(name: String, path: PathBuf) -> CronusResult<()> {
+    let cronus = std::env::current_exe()?;
+    match daemon(false, false) {
+        Ok(Fork::Child) => {
+            std::process::Command::new(cronus)
+                .arg("run")
+                .arg("--name")
+                .arg(name)
+                .arg("--path")
+                .arg(path)
+                .spawn()?;
+            std::process::exit(0);
+        }
+        _ => std::process::exit(0),
+    }
 }
 
 #[tokio::main]
