@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use fork::{daemon, Fork};
+use serde_json::json;
 use structopt::StructOpt;
 use uuid::Uuid;
 
@@ -203,8 +204,15 @@ impl AddSubCommand {
     }
 }
 
-#[tokio::main]
-async fn main() -> CronusResult<()> {
+/// Asynchronously runs the Cronus task execution manager.
+///
+/// This function matches the command line arguments to the corresponding command variant and executes the command.
+/// It handles all the commands that the Cronus task execution manager can process, including starting and stopping the service, adding and deleting jobs, listing jobs, and running the service.
+///
+/// # Returns
+///
+/// * `CronusResult<String>` - The result of running the command. If the command is executed successfully, it returns a `CronusResult::Ok(String)` where the `String` is a JSON string that represents the result of the command. If there is an error executing the command, it returns a `CronusResult::Err(CronusError)` where the `CronusError` represents the error that occurred.
+async fn run() -> CronusResult<String> {
     let response = match Command::from_args() {
         Command::Start { name, path } => {
             let cronus = std::env::current_exe()?;
@@ -250,16 +258,21 @@ async fn main() -> CronusResult<()> {
         }
     };
 
-    match response {
-        CommandResponse::JobAdded(id) => {
-            println!("Job added with id: {}", id);
-        }
-        CommandResponse::JobList(jobs) => {
-            for job in jobs {
-                println!("{:?}", job);
-            }
-        }
-        _ => {}
-    }
+    let json_result = match response {
+        CommandResponse::JobAdded(id) => json!({"job_id": id}),
+        CommandResponse::JobList(jobs) => json!(jobs),
+        CommandResponse::JobDeleted => json!({"message": "Job deleted"}),
+        CommandResponse::ServiceStopped => json!({"message": "Service stopped"}),
+    };
+    Ok(json_result.to_string())
+}
+
+#[tokio::main]
+async fn main() -> CronusResult<()> {
+    let json_result = run().await.unwrap_or_else(|e| {
+        let e = e.to_string();
+        json!({"error": e}).to_string()
+    });
+    println!("{json_result}");
     Ok(())
 }
