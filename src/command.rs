@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::CronusResult;
 use crate::job::{Job, JobInfo};
@@ -141,6 +142,24 @@ impl CommandResponse {
     /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse` instance on success or an error.
     pub fn from_bytes(cmd: &[u8]) -> CronusResult<Self> {
         serde_json::from_slice::<Self>(cmd).map_err(Into::into)
+    }
+
+    /// Converts the `CommandResponse` instance into a JSON message.
+    ///
+    /// This function serializes the `CommandResponse` instance into a JSON string. The structure of the JSON string depends on the variant of the `CommandResponse` instance.
+    ///
+    /// # Returns
+    ///
+    /// * `String` - Returns a JSON string that represents the `CommandResponse` instance.
+    pub fn to_json_msg(&self) -> String {
+        let json_msg = match self {
+            Self::JobAdded(id) => json!({"job_id": id}),
+            Self::JobList(jobs) => json!(jobs),
+            Self::JobDeleted => json!({"message": "Job deleted"}),
+            Self::ServiceRunning => json!({"message": "Service running"}),
+            Self::ServiceStopped => json!({"message": "Service stopped"}),
+        };
+        json_msg.to_string()
     }
 }
 

@@ -269,15 +269,7 @@ async fn run() -> CronusResult<String> {
             cc.ping_service()?
         }
     };
-
-    let json_result = match response {
-        CommandResponse::JobAdded(id) => json!({"job_id": id}),
-        CommandResponse::JobList(jobs) => json!(jobs),
-        CommandResponse::JobDeleted => json!({"message": "Job deleted"}),
-        CommandResponse::ServiceRunning => json!({"message": "Service running"}),
-        CommandResponse::ServiceStopped => json!({"message": "Service stopped"}),
-    };
-    Ok(json_result.to_string())
+    Ok(response.to_json_msg())
 }
 
 /// Checks if the Cronus service is running.
