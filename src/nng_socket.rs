@@ -50,7 +50,7 @@ impl NngIpcSocket {
         Ok(sock)
     }
 
-    /// Constructs a new `NngIpcSocket` that dials synchronously to the given path.
+    /// Constructs a new `NngIpcSocket` that dials to the given path.
     ///
     /// # Arguments
     ///
@@ -63,9 +63,9 @@ impl NngIpcSocket {
     /// # Errors
     ///
     /// This function will return an error if the socket fails to dial synchronously to the given path.
-    pub fn new_dial_sync(path: PathBuf) -> CronusResult<Self> {
+    pub fn new_dial(path: PathBuf) -> CronusResult<Self> {
         let sock = Self::new(Protocol::Req0, path)?;
-        sock.dial_sync()?;
+        sock.dial()?;
         Ok(sock)
     }
 
@@ -82,7 +82,7 @@ impl NngIpcSocket {
         self.raw.listen(&self.addr).map_err(Into::into)
     }
 
-    /// Initiates a synchronous dialing operation on the `NngIpcSocket`.
+    /// Initiates a dialing operation on the `NngIpcSocket`.
     ///
     /// # Returns
     ///
@@ -91,7 +91,7 @@ impl NngIpcSocket {
     /// # Errors
     ///
     /// This function will return an error if the socket fails to dial to the address.
-    pub fn dial_sync(&self) -> CronusResult<()> {
+    pub fn dial(&self) -> CronusResult<()> {
         self.raw.dial(&self.addr).map_err(Into::into)
     }
 

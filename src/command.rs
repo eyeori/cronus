@@ -184,7 +184,7 @@ impl CommandClient {
     ///
     /// * `CronusResult<CommandClient>` - Returns a `CronusResult` that contains a `CommandClient` instance on success or an error.
     pub fn new(name: String, path: PathBuf) -> CronusResult<Self> {
-        Ok(Self(NngIpcSocket::new_dial_sync(path.join(name))?))
+        Ok(Self(NngIpcSocket::new_dial(path.join(name))?))
     }
 
     /// Sends an `AddJob` command to the socket.
