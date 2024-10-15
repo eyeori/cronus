@@ -25,8 +25,8 @@ use crate::CronusResult;
 /// * `cmd_parser` - A `Pin<Box<dyn Future<Output=CronusResult<()>>>>` that represents a future for parsing commands.
 /// * `cmd_handler` - A `Pin<Box<dyn Future<Output=CronusResult<()>>>>` that represents a future for handling commands.
 pub struct CronusScheduler {
-    cmd_parser: Pin<Box<dyn Future<Output = CronusResult<()>>>>,
-    cmd_handler: Pin<Box<dyn Future<Output = CronusResult<()>>>>,
+    cmd_parser: Pin<Box<dyn Future<Output=CronusResult<()>>>>,
+    cmd_handler: Pin<Box<dyn Future<Output=CronusResult<()>>>>,
 }
 
 impl CronusScheduler {
@@ -190,7 +190,7 @@ impl CronusScheduler {
         let cron_job = JobBuilder::new()
             .with_timezone(Local)
             .with_cron_job_type()
-            .with_schedule(cron.as_ref())?
+            .with_schedule(cron)?
             .with_run_async(Box::new(move |id, mut scheduler| {
                 let business = business.clone();
                 Box::pin(async move {
@@ -227,19 +227,16 @@ impl CronusScheduler {
         let mut job_list = Vec::new();
         let jobs = jobs.read().await.clone();
         let metadata = scheduler.context().metadata_storage.clone();
-        let mut metadata = metadata.write().await;
         for (id, job) in jobs {
-            if let Some(job_data) = metadata.get(id).await? {
-                let id = if let Some(id) = &job_data.id {
-                    Uuid::from(id).to_string()
-                } else {
-                    Default::default()
-                };
-                let cron = if let Some(schedule) = job_data.schedule() {
-                    String::from(schedule)
-                } else {
-                    Default::default()
-                };
+            let job_stored_data = { metadata.write().await.get(id).await? };
+            if let Some(job_data) = job_stored_data {
+                let id = job_data
+                    .id
+                    .as_ref()
+                    .map_or_else(Default::default, |id| Uuid::from(id).to_string());
+                let cron = job_data
+                    .schedule()
+                    .map_or_else(Default::default, |schedule| schedule.pattern.to_string());
                 let job = JobInfo {
                     id,
                     cron,
