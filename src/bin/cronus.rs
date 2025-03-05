@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use fork::{daemon, Fork};
 use serde_json::json;
@@ -233,13 +233,13 @@ impl AddSubCommand {
 async fn run() -> CronusResult<String> {
     let response = match Command::from_args() {
         Command::Start { name, path } => {
-            if !check_service_running(name.clone(), path.clone())? {
-                run_new_service(name, path)?;
+            if !check_service_running(&name, &path)? {
+                run_new_service(&name, &path)?;
             }
             CommandResponse::ServiceRunning
         }
         Command::Stop { name, path } => {
-            let cc = CommandClient::new(name, path)?;
+            let cc = CommandClient::new(&name, &path)?;
             cc.stop_service()?
         }
         Command::Add {
@@ -248,16 +248,16 @@ async fn run() -> CronusResult<String> {
             corn,
             sub_cmd,
         } => {
-            let cc = CommandClient::new(name, path)?;
+            let cc = CommandClient::new(&name, &path)?;
             cc.add_job(corn, sub_cmd.into_job())?
         }
         Command::Delete { name, path, id } => {
             Uuid::parse_str(&id).map_err(|_| "Invalid job id")?;
-            let cc = CommandClient::new(name, path)?;
+            let cc = CommandClient::new(&name, &path)?;
             cc.delete_job(id)?
         }
         Command::List { name, path } => {
-            let cc = CommandClient::new(name, path)?;
+            let cc = CommandClient::new(&name, &path)?;
             cc.list_jobs()?
         }
         Command::Run { name, path } => {
@@ -265,7 +265,7 @@ async fn run() -> CronusResult<String> {
             scheduler.run().await?
         }
         Command::Ping { name, path } => {
-            let cc = CommandClient::new(name, path)?;
+            let cc = CommandClient::new(&name, &path)?;
             cc.ping_service()?
         }
     };
@@ -284,7 +284,7 @@ async fn run() -> CronusResult<String> {
 /// # Returns
 ///
 /// * `CronusResult<bool>` - Returns `Ok(true)` if the service is running, `Ok(false)` if the service is not running, and `Err(CronusError)` if there was an error checking the service status.
-fn check_service_running(name: String, path: PathBuf) -> CronusResult<bool> {
+fn check_service_running(name: &str, path: &Path) -> CronusResult<bool> {
     if let Ok(cc) = CommandClient::new(name, path) {
         if let Ok(res) = cc.ping_service() {
             if res == CommandResponse::ServiceRunning {
@@ -307,7 +307,7 @@ fn check_service_running(name: String, path: PathBuf) -> CronusResult<bool> {
 /// # Returns
 ///
 /// * `CronusResult<()>` - Returns `Ok(())` if the service is started successfully, and `Err(CronusError)` if there was an error starting the service.
-fn run_new_service(name: String, path: PathBuf) -> CronusResult<()> {
+fn run_new_service(name: &str, path: &Path) -> CronusResult<()> {
     let cronus = std::env::current_exe()?;
     match daemon(false, false) {
         Ok(Fork::Child) => {

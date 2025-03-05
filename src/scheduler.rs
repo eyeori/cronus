@@ -104,7 +104,7 @@ impl CronusScheduler {
         cmd_sender: Sender<Command>,
         mut cmd_res_receiver: Receiver<CommandResponse>,
     ) -> CronusResult<()> {
-        let cmd_server = NngIpcSocket::new_listen(cmd_path)?;
+        let cmd_server = NngIpcSocket::new_listen(&cmd_path)?;
         loop {
             let msg = cmd_server.recv()?;
             let cmd = Command::from_bytes(&msg[..])?;

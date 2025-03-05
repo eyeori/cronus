@@ -42,8 +42,8 @@ impl Job {
     /// # Returns
     ///
     /// * `Self` - Returns a new `RhaiScript` variant of `Job`.
-    pub fn new_rhai_script(script: impl ToString) -> Self {
-        Job::RhaiScript(script.to_string())
+    pub fn new_rhai_script(script: String) -> Self {
+        Job::RhaiScript(script)
     }
 
     /// Creates a new `RhaiScriptFile` variant of `Job`.

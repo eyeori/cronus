@@ -1,11 +1,11 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::CronusResult;
 use crate::job::{Job, JobInfo};
 use crate::nng_socket::NngIpcSocket;
+use crate::CronusResult;
 
 /// `Command` is an enumeration that represents the different types of commands that can be issued.
 ///
@@ -183,8 +183,8 @@ impl CommandClient {
     /// # Returns
     ///
     /// * `CronusResult<CommandClient>` - Returns a `CronusResult` that contains a `CommandClient` instance on success or an error.
-    pub fn new(name: String, path: PathBuf) -> CronusResult<Self> {
-        Ok(Self(NngIpcSocket::new_dial(path.join(name))?))
+    pub fn new(name: &str, path: &Path) -> CronusResult<Self> {
+        Ok(Self(NngIpcSocket::new_dial(&path.join(name))?))
     }
 
     /// Sends an `AddJob` command to the socket.

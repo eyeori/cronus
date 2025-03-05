@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use nng::{Error, Message, Protocol, Socket};
 
@@ -24,7 +24,7 @@ impl NngIpcSocket {
     /// # Returns
     ///
     /// * `CronusResult<Self>` - Returns a `CronusResult` that contains the newly created `NngIpcSocket` or an error.
-    pub fn new(p: Protocol, path: PathBuf) -> CronusResult<Self> {
+    pub fn new(p: Protocol, path: &Path) -> CronusResult<Self> {
         Ok(Self {
             raw: Socket::new(p)?,
             addr: format!("ipc://{}", path.display()),
@@ -44,7 +44,7 @@ impl NngIpcSocket {
     /// # Errors
     ///
     /// This function will return an error if the socket fails to listen on the given path.
-    pub fn new_listen(path: PathBuf) -> CronusResult<Self> {
+    pub fn new_listen(path: &Path) -> CronusResult<Self> {
         let sock = Self::new(Protocol::Rep0, path)?;
         sock.listen()?;
         Ok(sock)
@@ -63,7 +63,7 @@ impl NngIpcSocket {
     /// # Errors
     ///
     /// This function will return an error if the socket fails to dial synchronously to the given path.
-    pub fn new_dial(path: PathBuf) -> CronusResult<Self> {
+    pub fn new_dial(path: &Path) -> CronusResult<Self> {
         let sock = Self::new(Protocol::Req0, path)?;
         sock.dial()?;
         Ok(sock)
