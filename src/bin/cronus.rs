@@ -179,13 +179,13 @@ enum Command {
 ///
 /// # Variants
 ///
-/// * `CmdJob` - Represents a command job. It contains the path to the command and the arguments for the command.
-/// * `RhaiJob` - Represents a Rhai job. It contains the Rhai script code.
-/// * `RhaiFileJob` - Represents a Rhai file job. It contains the path to the Rhai script file.
+/// * `Cmd` - Represents a command job. It contains the path to the command and the arguments for the command.
+/// * `Rhai` - Represents a Rhai job. It contains the Rhai script code.
+/// * `RhaiFile` - Represents a Rhai file job. It contains the path to the Rhai script file.
 #[derive(StructOpt, Debug)]
 enum AddSubCommand {
     #[structopt(about = "Command Job")]
-    CmdJob {
+    Cmd {
         #[structopt(short, long, parse(from_os_str), long_help = "Command path")]
         cmd: PathBuf,
 
@@ -193,12 +193,12 @@ enum AddSubCommand {
         args: Vec<String>,
     },
     #[structopt(about = "Rhai Job")]
-    RhaiJob {
+    Rhai {
         #[structopt(short, long, long_help = "Rhai script code")]
         script: String,
     },
     #[structopt(about = "Rhai file Job")]
-    RhaiFileJob {
+    RhaiFile {
         #[structopt(short, long, parse(from_os_str), long_help = "Rhai script file path")]
         script_file: PathBuf,
     },
@@ -215,9 +215,9 @@ impl AddSubCommand {
     /// * `Job` - The `Job` that corresponds to the `AddSubCommand`.
     fn into_job(self) -> Job {
         match self {
-            AddSubCommand::CmdJob { cmd, args } => Job::new_command(cmd, args),
-            AddSubCommand::RhaiJob { script } => Job::new_rhai_script(script),
-            AddSubCommand::RhaiFileJob { script_file } => Job::new_rhai_script_file(script_file),
+            AddSubCommand::Cmd { cmd, args } => Job::new_command(cmd, args),
+            AddSubCommand::Rhai { script } => Job::new_rhai_script(script),
+            AddSubCommand::RhaiFile { script_file } => Job::new_rhai_script_file(script_file),
         }
     }
 }
@@ -285,12 +285,11 @@ async fn run() -> CronusResult<String> {
 ///
 /// * `CronusResult<bool>` - Returns `Ok(true)` if the service is running, `Ok(false)` if the service is not running, and `Err(CronusError)` if there was an error checking the service status.
 fn check_service_running(name: &str, path: &Path) -> CronusResult<bool> {
-    if let Ok(cc) = CommandClient::new(name, path) {
-        if let Ok(res) = cc.ping_service() {
-            if res == CommandResponse::ServiceRunning {
-                return Ok(true);
-            }
-        }
+    if let Ok(cc) = CommandClient::new(name, path)
+        && let Ok(res) = cc.ping_service()
+        && res == CommandResponse::ServiceRunning
+    {
+        return Ok(true);
     }
     Ok(false)
 }
