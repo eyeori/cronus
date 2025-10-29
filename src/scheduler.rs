@@ -1,20 +1,18 @@
+use crate::command::{Command, CommandResponse};
+use crate::job::{Job, JobInfo};
+use crate::nng_socket::NngIpcSocket;
+use anyhow::Result;
+use chrono::Local;
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-
-use chrono::Local;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::{mpsc, RwLock};
 use tokio::try_join;
 use tokio_cron_scheduler::{JobBuilder, JobScheduler};
 use uuid::Uuid;
-
-use crate::command::{Command, CommandResponse};
-use crate::job::{Job, JobInfo};
-use crate::nng_socket::NngIpcSocket;
-use crate::CronusResult;
 
 /// `CronusScheduler` is a struct that represents a scheduler for cron jobs.
 ///
@@ -22,11 +20,11 @@ use crate::CronusResult;
 ///
 /// # Fields
 ///
-/// * `cmd_parser` - A `Pin<Box<dyn Future<Output=CronusResult<()>>>>` that represents a future for parsing commands.
-/// * `cmd_handler` - A `Pin<Box<dyn Future<Output=CronusResult<()>>>>` that represents a future for handling commands.
+/// * `cmd_parser` - A `Pin<Box<dyn Future<Output=Result<()>>>>` that represents a future for parsing commands.
+/// * `cmd_handler` - A `Pin<Box<dyn Future<Output=Result<()>>>>` that represents a future for handling commands.
 pub struct CronusScheduler {
-    cmd_parser: Pin<Box<dyn Future<Output=CronusResult<()>>>>,
-    cmd_handler: Pin<Box<dyn Future<Output=CronusResult<()>>>>,
+    cmd_parser: Pin<Box<dyn Future<Output=Result<()>>>>,
+    cmd_handler: Pin<Box<dyn Future<Output=Result<()>>>>,
 }
 
 impl CronusScheduler {
@@ -38,12 +36,12 @@ impl CronusScheduler {
     /// # Arguments
     ///
     /// * `name` - A string that represents the name of the command path.
-    /// * `path` - A `PathBuf` that represents the path of the command.
+    /// * `path` - A `Path` that represents the path of the command.
     ///
     /// # Returns
     ///
-    /// * `CronusResult<Self>` - Returns a `CronusResult` that contains a `CronusScheduler` if successful, or an error if not.
-    pub async fn new(name: String, path: PathBuf) -> CronusResult<Self> {
+    /// * `Result<Self>` - Returns a `Result` that contains a `CronusScheduler` if successful, or an error if not.
+    pub async fn new(name: String, path: &Path) -> Result<Self> {
         // init scheduler
         let scheduler = JobScheduler::new().await?;
         scheduler.start().await?;
@@ -74,14 +72,14 @@ impl CronusScheduler {
     ///
     /// This function concurrently runs the command parser and handler of the `CronusScheduler`.
     /// If either the command parser or handler fails, it will return the error.
-    /// If both the command parser and handler complete successfully, it will return `CommandResponse::ServiceStopped`.
+    /// If both the command parser and handler complete successfully, it will return `CommandResponse::Nothing`.
     ///
     /// # Returns
     ///
-    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse::ServiceStopped` if successful, or an error if not.
-    pub async fn run(self) -> CronusResult<CommandResponse> {
-        try_join!(self.cmd_parser, self.cmd_handler)?;
-        Ok(CommandResponse::ServiceStopped)
+    /// * `Result<CommandResponse>` - Returns a `Result` that contains a `CommandResponse::Nothing` if successful, or an error if not.
+    pub async fn run(self) -> Result<CommandResponse> {
+        let _ = try_join!(self.cmd_parser, self.cmd_handler)?;
+        Ok(CommandResponse::Nothing)
     }
 
     /// Parses commands received from the command server.
@@ -98,12 +96,12 @@ impl CronusScheduler {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<()>` - Returns a `CronusResult` that contains `()` if successful, or an error if not.
+    /// * `Result<()>` - Returns a `Result` that contains `()` if successful, or an error if not.
     async fn parse_command(
         cmd_path: PathBuf,
         cmd_sender: Sender<Command>,
         mut cmd_res_receiver: Receiver<CommandResponse>,
-    ) -> CronusResult<()> {
+    ) -> Result<()> {
         let cmd_server = NngIpcSocket::new_listen(&cmd_path)?;
         loop {
             let msg = cmd_server.recv()?;
@@ -135,12 +133,12 @@ impl CronusScheduler {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<()>` - Returns a `CronusResult` that contains `()` if successful, or an error if not.
+    /// * `Result<()>` - Returns a `Result` that contains `()` if successful, or an error if not.
     async fn handle_command(
         mut scheduler: JobScheduler,
         mut cmd_receiver: Receiver<Command>,
         cmd_res_sender: Sender<CommandResponse>,
-    ) -> CronusResult<()> {
+    ) -> Result<()> {
         let jobs = Arc::new(RwLock::new(HashMap::new()));
         loop {
             if let Some(cmd) = cmd_receiver.recv().await {
@@ -179,14 +177,14 @@ impl CronusScheduler {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse::JobAdded` if successful, or an error if not.
+    /// * `Result<CommandResponse>` - Returns a `Result` that contains a `CommandResponse::JobAdded` if successful, or an error if not.
     async fn handle_cmd_add_job(
         scheduler: &JobScheduler,
         jobs: Arc<RwLock<HashMap<Uuid, Job>>>,
         cron: String,
         job: Job,
-    ) -> CronusResult<CommandResponse> {
-        let business = job.clone().to_business();
+    ) -> Result<CommandResponse> {
+        let business = job.clone().into_business();
         let cron_job = JobBuilder::new()
             .with_timezone(Local)
             .with_cron_job_type()
@@ -219,11 +217,11 @@ impl CronusScheduler {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse::JobList` if successful, or an error if not.
+    /// * `Result<CommandResponse>` - Returns a `Result` that contains a `CommandResponse::JobList` if successful, or an error if not.
     async fn handle_cmd_list_job(
         scheduler: &JobScheduler,
         jobs: Arc<RwLock<HashMap<Uuid, Job>>>,
-    ) -> CronusResult<CommandResponse> {
+    ) -> Result<CommandResponse> {
         let mut job_list = Vec::new();
         let jobs = jobs.read().await.clone();
         let metadata = scheduler.context().metadata_storage.clone();
@@ -263,12 +261,12 @@ impl CronusScheduler {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse::JobDeleted` if successful, or an error if not.
+    /// * `Result<CommandResponse>` - Returns a `Result` that contains a `CommandResponse::JobDeleted` if successful, or an error if not.
     async fn handle_cmd_delete_job(
         scheduler: &JobScheduler,
         jobs: Arc<RwLock<HashMap<Uuid, Job>>>,
         id: Uuid,
-    ) -> CronusResult<CommandResponse> {
+    ) -> Result<CommandResponse> {
         scheduler.remove(&id).await?;
         jobs.write().await.retain(|job_id, _| job_id.ne(&id));
         Ok(CommandResponse::JobDeleted)
@@ -284,10 +282,8 @@ impl CronusScheduler {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse::ServiceStopped` if successful, or an error if not.
-    async fn handle_cmd_stop_service(
-        scheduler: &mut JobScheduler,
-    ) -> CronusResult<CommandResponse> {
+    /// * `Result<CommandResponse>` - Returns a `Result` that contains a `CommandResponse::ServiceStopped` if successful, or an error if not.
+    async fn handle_cmd_stop_service(scheduler: &mut JobScheduler) -> Result<CommandResponse> {
         scheduler.shutdown().await?;
         Ok(CommandResponse::ServiceStopped)
     }
@@ -298,8 +294,8 @@ impl CronusScheduler {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<CommandResponse>` - Returns a `CronusResult` that contains a `CommandResponse::ServiceRunning` if successful, or an error if not.
-    async fn handle_cmd_ping_service() -> CronusResult<CommandResponse> {
+    /// * `Result<CommandResponse>` - Returns a `Result` that contains a `CommandResponse::ServiceRunning` if successful, or an error if not.
+    async fn handle_cmd_ping_service() -> Result<CommandResponse> {
         Ok(CommandResponse::ServiceRunning)
     }
 }

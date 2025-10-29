@@ -1,8 +1,7 @@
-use std::path::PathBuf;
-use std::sync::Arc;
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 /// `Job` is an enumeration that represents the different types of jobs that can be scheduled.
 ///
@@ -23,14 +22,14 @@ impl Job {
     ///
     /// # Arguments
     ///
-    /// * `cmd_path` - A `PathBuf` that represents the path of the command.
+    /// * `cmd` - A `Path` that represents the path of the command.
     /// * `args` - A vector of strings that represent the arguments of the command.
     ///
     /// # Returns
     ///
     /// * `Self` - Returns a new `Command` variant of `Job`.
-    pub fn new_command(cmd_path: PathBuf, args: Vec<String>) -> Self {
-        Job::Command(cmd_path, args)
+    pub fn command(cmd: &Path, args: Vec<String>) -> Self {
+        Job::Command(cmd.to_path_buf(), args)
     }
 
     /// Creates a new `RhaiScript` variant of `Job`.
@@ -42,7 +41,7 @@ impl Job {
     /// # Returns
     ///
     /// * `Self` - Returns a new `RhaiScript` variant of `Job`.
-    pub fn new_rhai_script(script: String) -> Self {
+    pub fn rhai_script(script: String) -> Self {
         Job::RhaiScript(script)
     }
 
@@ -50,13 +49,13 @@ impl Job {
     ///
     /// # Arguments
     ///
-    /// * `file` - A `PathBuf` that represents the path of the Rhai script file.
+    /// * `file` - A `Path` that represents the path of the Rhai script file.
     ///
     /// # Returns
     ///
     /// * `Self` - Returns a new `RhaiScriptFile` variant of `Job`.
-    pub fn new_rhai_script_file(file: PathBuf) -> Self {
-        Job::RhaiScriptFile(file)
+    pub fn rhai_script_file(file: &Path) -> Self {
+        Job::RhaiScriptFile(file.to_path_buf())
     }
 
     /// Converts a `Job` instance into a business function.
@@ -70,11 +69,11 @@ impl Job {
     /// # Returns
     ///
     /// * `Arc<dyn Fn(DateTime<Utc>) + Send + Sync>` - Returns an `Arc` containing a dynamic function that takes a `DateTime<Utc>` as an argument and implements `Send` and `Sync`.
-    pub fn to_business(self) -> Arc<dyn Fn(DateTime<Utc>) + Send + Sync> {
+    pub fn into_business(self) -> Arc<dyn Fn(DateTime<Utc>) + Send + Sync> {
         match self {
-            Job::Command(cmd_path, args) => Job::command_to_business(cmd_path, args),
+            Job::Command(cmd, args) => Job::command_to_business(&cmd, args),
             Job::RhaiScript(script) => Job::rhai_script_to_business(script),
-            Job::RhaiScriptFile(file) => Job::rhai_script_file_to_business(file),
+            Job::RhaiScriptFile(file) => Job::rhai_script_file_to_business(&file),
         }
     }
 
@@ -84,18 +83,19 @@ impl Job {
     ///
     /// # Arguments
     ///
-    /// * `cmd_path` - A `PathBuf` that represents the path of the command.
+    /// * `cmd` - A `Path` that represents the path of the command.
     /// * `args` - A vector of strings that represent the arguments of the command.
     ///
     /// # Returns
     ///
     /// * `Arc<dyn Fn(DateTime<Utc>) + Send + Sync>` - Returns an `Arc` containing a dynamic function that takes a `DateTime<Utc>` as an argument and implements `Send` and `Sync`.
     fn command_to_business(
-        cmd_path: PathBuf,
+        cmd: &Path,
         args: Vec<String>,
     ) -> Arc<dyn Fn(DateTime<Utc>) + Send + Sync> {
+        let cmd = cmd.to_path_buf();
         Arc::new(move |_| {
-            let mut cmd = std::process::Command::new(cmd_path.clone());
+            let mut cmd = std::process::Command::new(cmd.clone());
             for arg in &args {
                 cmd.arg(arg);
             }
@@ -115,9 +115,8 @@ impl Job {
     ///
     /// * `Arc<dyn Fn(DateTime<Utc>) + Send + Sync>` - Returns an `Arc` containing a dynamic function that takes a `DateTime<Utc>` as an argument and implements `Send` and `Sync`.
     fn rhai_script_to_business(script: String) -> Arc<dyn Fn(DateTime<Utc>) + Send + Sync> {
-        Arc::new(move |_| {
-            _ = rhai::run(&script);
-        })
+        let handler = move |_: DateTime<Utc>| _ = rhai::run(&script);
+        Arc::new(handler)
     }
 
     /// Converts a `RhaiScriptFile` variant of `Job` into a business function.
@@ -126,15 +125,15 @@ impl Job {
     ///
     /// # Arguments
     ///
-    /// * `file` - A `PathBuf` that represents the path of the Rhai script file.
+    /// * `file` - A `Path` that represents the path of the Rhai script file.
     ///
     /// # Returns
     ///
     /// * `Arc<dyn Fn(DateTime<Utc>) + Send + Sync>` - Returns an `Arc` containing a dynamic function that takes a `DateTime<Utc>` as an argument and implements `Send` and `Sync`.
-    fn rhai_script_file_to_business(file: PathBuf) -> Arc<dyn Fn(DateTime<Utc>) + Send + Sync> {
-        Arc::new(move |_| {
-            _ = rhai::run_file(file.clone());
-        })
+    fn rhai_script_file_to_business(file: &Path) -> Arc<dyn Fn(DateTime<Utc>) + Send + Sync> {
+        let file = file.to_path_buf();
+        let handler = move |_: DateTime<Utc>| _ = rhai::run_file(file.clone());
+        Arc::new(handler)
     }
 }
 

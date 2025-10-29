@@ -1,8 +1,6 @@
-use std::path::Path;
-
+use anyhow::Result;
 use nng::{Error, Message, Protocol, Socket};
-
-use crate::CronusResult;
+use std::path::Path;
 
 /// `NngIpcSocket` is a structure that represents an IPC socket using the NNG library.
 /// It contains the raw socket and the address of the socket as a string.
@@ -23,8 +21,8 @@ impl NngIpcSocket {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<Self>` - Returns a `CronusResult` that contains the newly created `NngIpcSocket` or an error.
-    pub fn new(p: Protocol, path: &Path) -> CronusResult<Self> {
+    /// * `Result<Self>` - Returns a `Result` that contains the newly created `NngIpcSocket` or an error.
+    pub fn new(p: Protocol, path: &Path) -> Result<Self> {
         Ok(Self {
             raw: Socket::new(p)?,
             addr: format!("ipc://{}", path.display()),
@@ -39,12 +37,12 @@ impl NngIpcSocket {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<Self>` - Returns a `CronusResult` that contains the newly created `NngIpcSocket` or an error.
+    /// * `Result<Self>` - Returns a `Result` that contains the newly created `NngIpcSocket` or an error.
     ///
     /// # Errors
     ///
     /// This function will return an error if the socket fails to listen on the given path.
-    pub fn new_listen(path: &Path) -> CronusResult<Self> {
+    pub fn new_listen(path: &Path) -> Result<Self> {
         let sock = Self::new(Protocol::Rep0, path)?;
         sock.listen()?;
         Ok(sock)
@@ -58,12 +56,12 @@ impl NngIpcSocket {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<Self>` - Returns a `CronusResult` that contains the newly created `NngIpcSocket` or an error.
+    /// * `Result<Self>` - Returns a `Result` that contains the newly created `NngIpcSocket` or an error.
     ///
     /// # Errors
     ///
     /// This function will return an error if the socket fails to dial synchronously to the given path.
-    pub fn new_dial(path: &Path) -> CronusResult<Self> {
+    pub fn new_dial(path: &Path) -> Result<Self> {
         let sock = Self::new(Protocol::Req0, path)?;
         sock.dial()?;
         Ok(sock)
@@ -73,12 +71,12 @@ impl NngIpcSocket {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<()>` - Returns a `CronusResult` that contains an empty tuple on success or an error.
+    /// * `Result<()>` - Returns a `Result` that contains an empty tuple on success or an error.
     ///
     /// # Errors
     ///
     /// This function will return an error if the socket fails to listen on the address.
-    pub fn listen(&self) -> CronusResult<()> {
+    pub fn listen(&self) -> Result<()> {
         self.raw.listen(&self.addr).map_err(Into::into)
     }
 
@@ -86,12 +84,12 @@ impl NngIpcSocket {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<()>` - Returns a `CronusResult` that contains an empty tuple on success or an error.
+    /// * `Result<()>` - Returns a `Result` that contains an empty tuple on success or an error.
     ///
     /// # Errors
     ///
     /// This function will return an error if the socket fails to dial to the address.
-    pub fn dial(&self) -> CronusResult<()> {
+    pub fn dial(&self) -> Result<()> {
         self.raw.dial(&self.addr).map_err(Into::into)
     }
 
@@ -99,12 +97,12 @@ impl NngIpcSocket {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<Message>` - Returns a `CronusResult` that contains the received message or an error.
+    /// * `Result<Message>` - Returns a `Result` that contains the received message or an error.
     ///
     /// # Errors
     ///
     /// This function will return an error if the socket fails to receive a message.
-    pub fn recv(&self) -> CronusResult<Message> {
+    pub fn recv(&self) -> Result<Message> {
         self.raw.recv().map_err(Into::into)
     }
 
@@ -116,12 +114,12 @@ impl NngIpcSocket {
     ///
     /// # Returns
     ///
-    /// * `CronusResult<()>` - Returns a `CronusResult` that contains an empty tuple on success or an error.
+    /// * `Result<()>` - Returns a `Result` that contains an empty tuple on success or an error.
     ///
     /// # Errors
     ///
     /// This function will return an error if the socket fails to send the message.
-    pub fn send<M: Into<Message>>(&self, msg: M) -> CronusResult<()> {
+    pub fn send<M: Into<Message>>(&self, msg: M) -> Result<()> {
         self.raw.send(msg).map_err(Error::from).map_err(Into::into)
     }
 }
